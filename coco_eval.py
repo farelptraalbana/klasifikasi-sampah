@@ -40,8 +40,8 @@ class CocoEvaluator(object):
         coco_eval.params.imgIds = list(img_ids)
 
         # Debugging: Print img_ids dan results
-        print(f"Evaluating bbox for images: {img_ids}")
-        print(f"Results: {results}")
+        #print(f"Evaluating bbox for images: {img_ids}")
+        #print(f"Results: {results}")
 
         img_ids, eval_imgs = evaluate(coco_eval)
 
