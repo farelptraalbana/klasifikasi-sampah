@@ -81,12 +81,12 @@ def evaluate(model, data_loader, device, print_freq=10):
 
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
         # Konversi setiap gambar ke tensor PyTorch
-        images = list(torch.from_numpy(image).to(device) for image in images)  
+        images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         torch.cuda.synchronize()
         model_time = time.time()
-        outputs = model(image)
+        outputs = model(images)
 
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time
