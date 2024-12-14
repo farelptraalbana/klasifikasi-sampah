@@ -17,18 +17,21 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     header = 'Epoch: [{}]'.format(epoch + 1)  
 
     lr_scheduler = None
-    if epoch == 1:
+    if epoch == 0:
         warmup_factor = 1. / 1000
         warmup_iters = min(1000, len(data_loader) - 1)
 
         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
+
+    # --- Inisialisasi variabel untuk mengakumulasi loss ---
+    epoch_loss = 0.0
+    iterations = 0
 
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         loss_dict = model(images, targets)
-
         losses = sum(loss for loss in loss_dict.values())
 
         # reduce losses over all GPUs for logging purposes
@@ -36,6 +39,10 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
         loss_value = losses_reduced.item()
+
+        # --- Akumulasi Loss ---
+        epoch_loss += loss_value  # Menambahkan loss_value, bukan losses.item()
+        iterations += 1
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
@@ -51,7 +58,10 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
 
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-    return loss_value
+
+    # --- Menghitung dan Mengembalikan Average Epoch Loss ---
+    average_epoch_loss = epoch_loss / iterations
+    return average_epoch_loss
 
 def _get_iou_types(model):
     model_without_ddp = model
