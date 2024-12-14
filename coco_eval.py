@@ -14,7 +14,6 @@ from collections import defaultdict
 
 import utils
 
-
 class CocoEvaluator(object):
     def __init__(self, coco_gt, iou_types):
         assert isinstance(iou_types, (list, tuple))
@@ -40,6 +39,11 @@ class CocoEvaluator(object):
 
             coco_eval.cocoDt = coco_dt
             coco_eval.params.imgIds = list(img_ids)
+
+            # Debugging: Print img_ids and results
+            print(f"Evaluating {iou_type} for images: {img_ids}")
+            print(f"Results: {results}")
+
             img_ids, eval_imgs = evaluate(coco_eval)
 
             self.eval_imgs[iou_type].append(eval_imgs)
@@ -153,11 +157,9 @@ class CocoEvaluator(object):
             )
         return coco_results
 
-
 def convert_to_xywh(boxes):
     xmin, ymin, xmax, ymax = boxes.unbind(1)
     return torch.stack((xmin, ymin, xmax - xmin, ymax - ymin), dim=1)
-
 
 def merge(img_ids, eval_imgs):
     all_img_ids = utils.all_gather(img_ids)
@@ -180,7 +182,6 @@ def merge(img_ids, eval_imgs):
 
     return merged_img_ids, merged_eval_imgs
 
-
 def create_common_coco_eval(coco_eval, img_ids, eval_imgs):
     img_ids, eval_imgs = merge(img_ids, eval_imgs)
     img_ids = list(img_ids)
@@ -189,15 +190,6 @@ def create_common_coco_eval(coco_eval, img_ids, eval_imgs):
     coco_eval.evalImgs = eval_imgs
     coco_eval.params.imgIds = img_ids
     coco_eval._paramsEval = copy.deepcopy(coco_eval.params)
-
-
-#################################################################
-# From pycocotools, just removed the prints and fixed
-# a Python3 bug about unicode not defined
-#################################################################
-
-# Ideally, pycocotools wouldn't have hard-coded prints
-# so that we could avoid copy-pasting those two functions
 
 def createIndex(self):
     # create index
@@ -221,8 +213,6 @@ def createIndex(self):
         for ann in self.dataset['annotations']:
             catToImgs[ann['category_id']].append(ann['image_id'])
 
-    # print('index created!')
-
     # create class members
     self.anns = anns
     self.imgToAnns = imgToAnns
@@ -230,9 +220,7 @@ def createIndex(self):
     self.imgs = imgs
     self.cats = cats
 
-
 maskUtils = mask_util
-
 
 def loadRes(self, resFile):
     """
@@ -243,8 +231,6 @@ def loadRes(self, resFile):
     res = COCO()
     res.dataset['images'] = [img for img in self.dataset['images']]
 
-    # print('Loading and preparing results...')
-    # tic = time.time()
     if isinstance(resFile, (str,)): 
         anns = json.load(open(resFile))
     elif type(resFile) == np.ndarray:
@@ -289,21 +275,14 @@ def loadRes(self, resFile):
             ann['area'] = (x1 - x0) * (y1 - y0)
             ann['id'] = id + 1
             ann['bbox'] = [x0, y0, x1 - x0, y1 - y0]
-    # print('DONE (t={:0.2f}s)'.format(time.time()- tic))
 
     res.dataset['annotations'] = anns
     createIndex(res)
     return res
 
-
 def evaluate(self):
-    '''
-    Run per image evaluation on given images and store results (a list of dict) in self.evalImgs
-    :return: None
-    '''
-    # tic = time.time()
-    # print('Running per image evaluation...')
     p = self.params
+    print(f"Evaluating with imgIds: {p.imgIds} and catIds: {p.catIds}")
     # add backward compatibility if useSegm is specified in params
     if p.useSegm is not None:
         p.iouType = 'segm' if p.useSegm == 1 else 'bbox'
@@ -339,10 +318,5 @@ def evaluate(self):
     # this is NOT in the pycocotools code, but could be done outside
     evalImgs = np.asarray(evalImgs).reshape(len(catIds), len(p.areaRng), len(p.imgIds))
     self._paramsEval = copy.deepcopy(self.params)
-    # toc = time.time()
-    # print('DONE (t={:0.2f}s).'.format(toc-tic))
-    return p.imgIds, evalImgs
 
-#################################################################
-# end of straight copy from pycocotools, just removing the prints
-#################################################################
+    return p.imgIds, evalImgs
