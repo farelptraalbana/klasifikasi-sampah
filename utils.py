@@ -219,7 +219,14 @@ class MetricLogger(object):
 
 
 def collate_fn(batch):
-    return tuple(zip(*batch))
+    images = [item[0] for item in batch]
+    targets = [item[1] for item in batch]
+    
+    # Stack gambar menjadi satu tensor
+    images = torch.stack(images, dim=0)
+    
+    # Kembalikan gambar dan target sebagai tuple
+    return images, targets
 
 
 def warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor):
