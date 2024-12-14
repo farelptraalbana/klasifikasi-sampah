@@ -209,7 +209,7 @@ def loadRes(self, resFile):
 
 def evaluate(self):
     p = self.params
-    print(f"Evaluating with imgIds: {p.imgIds} and catIds: {p.catIds}")
+    #print(f"Evaluating with imgIds: {p.imgIds} and catIds: {p.catIds}")
     # add backward compatibility if useSegm is specified in params
     if p.useSegm is not None:
         p.iouType = 'segm' if p.useSegm == 1 else 'bbox'
