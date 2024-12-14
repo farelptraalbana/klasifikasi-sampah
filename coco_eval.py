@@ -20,55 +20,48 @@ class CocoEvaluator(object):
         coco_gt = copy.deepcopy(coco_gt)
         self.coco_gt = coco_gt
 
-        self.iou_types = iou_types
-        self.coco_eval = {}
-        for iou_type in iou_types:
-            self.coco_eval[iou_type] = COCOeval(coco_gt, iouType=iou_type)
+        # Hanya simpan "bbox" dalam iou_types
+        self.iou_types = ["bbox"]
+        self.coco_eval = { "bbox": COCOeval(coco_gt, iouType="bbox") }
 
         self.img_ids = []
-        self.eval_imgs = {k: [] for k in iou_types}
+        self.eval_imgs = { "bbox": [] }
 
     def update(self, predictions):
         img_ids = list(np.unique(list(predictions.keys())))
         self.img_ids.extend(img_ids)
 
-        for iou_type in self.iou_types:
-            results = self.prepare(predictions, iou_type)
-            coco_dt = loadRes(self.coco_gt, results) if results else COCO()
-            coco_eval = self.coco_eval[iou_type]
+        # Hanya proses untuk "bbox"
+        results = self.prepare(predictions, "bbox")
+        coco_dt = loadRes(self.coco_gt, results) if results else COCO()
+        coco_eval = self.coco_eval["bbox"]
 
-            coco_eval.cocoDt = coco_dt
-            coco_eval.params.imgIds = list(img_ids)
+        coco_eval.cocoDt = coco_dt
+        coco_eval.params.imgIds = list(img_ids)
 
-            # Debugging: Print img_ids and results
-            print(f"Evaluating {iou_type} for images: {img_ids}")
-            print(f"Results: {results}")
+        # Debugging: Print img_ids dan results
+        print(f"Evaluating bbox for images: {img_ids}")
+        print(f"Results: {results}")
 
-            img_ids, eval_imgs = evaluate(coco_eval)
+        img_ids, eval_imgs = evaluate(coco_eval)
 
-            self.eval_imgs[iou_type].append(eval_imgs)
+        self.eval_imgs["bbox"].append(eval_imgs)
 
     def synchronize_between_processes(self):
-        for iou_type in self.iou_types:
-            self.eval_imgs[iou_type] = np.concatenate(self.eval_imgs[iou_type], 2)
-            create_common_coco_eval(self.coco_eval[iou_type], self.img_ids, self.eval_imgs[iou_type])
+        self.eval_imgs["bbox"] = np.concatenate(self.eval_imgs["bbox"], 2)
+        create_common_coco_eval(self.coco_eval["bbox"], self.img_ids, self.eval_imgs["bbox"])
 
     def accumulate(self):
-        for coco_eval in self.coco_eval.values():
-            coco_eval.accumulate()
+        self.coco_eval["bbox"].accumulate()
 
     def summarize(self):
-        for iou_type, coco_eval in self.coco_eval.items():
-            print("IoU metric: {}".format(iou_type))
-            coco_eval.summarize()
+        coco_eval = self.coco_eval["bbox"]
+        print("IoU metric: bbox")
+        coco_eval.summarize()
 
     def prepare(self, predictions, iou_type):
         if iou_type == "bbox":
             return self.prepare_for_coco_detection(predictions)
-        elif iou_type == "segm":
-            return self.prepare_for_coco_segmentation(predictions)
-        elif iou_type == "keypoints":
-            return self.prepare_for_coco_keypoint(predictions)
         else:
             raise ValueError("Unknown iou type {}".format(iou_type))
 
@@ -92,67 +85,6 @@ class CocoEvaluator(object):
                         "score": scores[k],
                     }
                     for k, box in enumerate(boxes)
-                ]
-            )
-        return coco_results
-
-    def prepare_for_coco_segmentation(self, predictions):
-        coco_results = []
-        for original_id, prediction in predictions.items():
-            if len(prediction) == 0:
-                continue
-
-            scores = prediction["scores"]
-            labels = prediction["labels"]
-            masks = prediction["masks"]
-
-            masks = masks > 0.5
-
-            scores = prediction["scores"].tolist()
-            labels = prediction["labels"].tolist()
-
-            rles = [
-                mask_util.encode(np.array(mask[0, :, :, np.newaxis], order="F"))[0]
-                for mask in masks
-            ]
-            for rle in rles:
-                rle["counts"] = rle["counts"].decode("utf-8")
-
-            coco_results.extend(
-                [
-                    {
-                        "image_id": original_id,
-                        "category_id": labels[k],
-                        "segmentation": rle,
-                        "score": scores[k],
-                    }
-                    for k, rle in enumerate(rles)
-                ]
-            )
-        return coco_results
-
-    def prepare_for_coco_keypoint(self, predictions):
-        coco_results = []
-        for original_id, prediction in predictions.items():
-            if len(prediction) == 0:
-                continue
-
-            boxes = prediction["boxes"]
-            boxes = convert_to_xywh(boxes).tolist()
-            scores = prediction["scores"].tolist()
-            labels = prediction["labels"].tolist()
-            keypoints = prediction["keypoints"]
-            keypoints = keypoints.flatten(start_dim=1).tolist()
-
-            coco_results.extend(
-                [
-                    {
-                        "image_id": original_id,
-                        "category_id": labels[k],
-                        'keypoints': keypoint,
-                        "score": scores[k],
-                    }
-                    for k, keypoint in enumerate(keypoints)
                 ]
             )
         return coco_results
@@ -223,11 +155,6 @@ def createIndex(self):
 maskUtils = mask_util
 
 def loadRes(self, resFile):
-    """
-    Load result file and return a result api object.
-    :param   resFile (str)     : file name of result file
-    :return: res (obj)         : result api object
-    """
     res = COCO()
     res.dataset['images'] = [img for img in self.dataset['images']]
 
