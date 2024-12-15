@@ -106,7 +106,6 @@ def evaluate(model, data_loader, device, all_predictions=None,  print_freq=10):
         evaluator_time = time.time() - evaluator_time
         metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
         
-        # Kumpulkan prediksi dalam format COCO result
         for target, output in zip(targets, outputs):
             image_id = target["image_id"].item()
             if "boxes" in output and output["boxes"].dim() > 0:

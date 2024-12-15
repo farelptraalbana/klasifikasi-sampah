@@ -30,18 +30,18 @@ class CocoEvaluator(object):
     def update(self, predictions):
         img_ids = list(np.unique(list(predictions.keys())))
         self.img_ids.extend(img_ids)
+        
+        print(f"Number of images in evaluation: {len(self.img_ids)}")
 
         # Hanya proses untuk "bbox"
         results = self.prepare(predictions, "bbox")
+        
+        print(f"Number of predictions processed: {len(results)}")
         coco_dt = loadRes(self.coco_gt, results) if results else COCO()
         coco_eval = self.coco_eval["bbox"]
 
         coco_eval.cocoDt = coco_dt
         coco_eval.params.imgIds = list(img_ids)
-
-        # Debugging: Print img_ids dan results
-        #print(f"Evaluating bbox for images: {img_ids}")
-        #print(f"Results: {results}")
 
         img_ids, eval_imgs = evaluate(coco_eval)
 
@@ -87,6 +87,7 @@ class CocoEvaluator(object):
                     for k, box in enumerate(boxes)
                 ]
             )
+        print(f"Number of predictions processed in prepare: {len(coco_results)}")
         return coco_results
 
 def convert_to_xywh(boxes):
