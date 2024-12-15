@@ -14,6 +14,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    print("Training Model")
     header = 'Epoch: [{}]'.format(epoch + 1)  
 
     lr_scheduler = None
@@ -75,9 +76,8 @@ def _get_iou_types(model):
     return iou_types
 
 @torch.no_grad()
-def evaluate(model, data_loader, device, print_freq=10):
+def evaluate(model, data_loader, device, all_predictions=None,  print_freq=10):
     n_threads = torch.get_num_threads()
-    # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
     cpu_device = torch.device("cpu")
     model.eval()
@@ -105,6 +105,20 @@ def evaluate(model, data_loader, device, print_freq=10):
         coco_evaluator.update(res)
         evaluator_time = time.time() - evaluator_time
         metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
+        
+        # Kumpulkan prediksi dalam format COCO result
+        for target, output in zip(targets, outputs):
+            image_id = target["image_id"].item()
+            if "boxes" in output and output["boxes"].dim() > 0:
+                for box, label_id, score in zip(output["boxes"], output["labels"], output["scores"]):
+                    if score > 0.7:
+                        if all_predictions is not None:
+                            all_predictions.append({
+                                "image_id": image_id,
+                                "category_id": label_id.item(),
+                                "bbox": box.tolist(),
+                                "score": score.item()
+                            })
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
@@ -115,4 +129,4 @@ def evaluate(model, data_loader, device, print_freq=10):
     coco_evaluator.accumulate()
     coco_evaluator.summarize()
     torch.set_num_threads(n_threads)
-    return coco_evaluator
+    return coco_evaluator, all_predictions
