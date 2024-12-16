@@ -20,6 +20,7 @@ class CocoEvaluator(object):
         assert isinstance(iou_types, (list, tuple))
         coco_gt = copy.deepcopy(coco_gt)
         self.coco_gt = coco_gt
+        self.map_scores = []
 
         # Hanya simpan "bbox" dalam iou_types
         self.iou_types = ["bbox"]

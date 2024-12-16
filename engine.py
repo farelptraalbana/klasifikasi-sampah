@@ -76,56 +76,48 @@ def _get_iou_types(model):
     return iou_types
 
 @torch.no_grad()
-def evaluate(model, data_loader, device, all_predictions=None,  print_freq=10):
-    n_threads = torch.get_num_threads()
-    torch.set_num_threads(1)
-    cpu_device = torch.device("cpu")
-    model.eval()
-    metric_logger = utils.MetricLogger(delimiter="  ")
-    header = 'Test:'
+def evaluate(model, data_loader, device, all_predictions=[], print_freq=10):
+       n_threads = torch.get_num_threads()
+       # FIXME remove this and make paste_masks_in_image run on the GPU
+       torch.set_num_threads(1)
+       cpu_device = torch.device("cpu")
+       model.eval()
+       metric_logger = utils.MetricLogger(delimiter="  ")
+       header = 'Test:'
 
-    coco = get_coco_api_from_dataset(data_loader.dataset)
-    iou_types = _get_iou_types(model)
-    coco_evaluator = CocoEvaluator(coco, iou_types)
+       coco = get_coco_api_from_dataset(data_loader.dataset)
+       iou_types = _get_iou_types(model)
+       coco_evaluator = CocoEvaluator(coco, iou_types)
+       
+       for images, targets in metric_logger.log_every(data_loader, print_freq, header):
+           images = images.to(device, non_blocking=True)
+           targets = [{k: v.to(device, non_blocking=True) for k, v in t.items()} for t in targets]
 
-    for images, targets in metric_logger.log_every(data_loader, print_freq, header):
-        # Konversi setiap gambar ke tensor PyTorch
-        images = list(image.to(device) for image in images)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+           if torch.cuda.is_available():
+               torch.cuda.synchronize()
+           model_time = time.time()
+           outputs = model(images)
 
-        torch.cuda.synchronize()
-        model_time = time.time()
-        outputs = model(images)
+           model_time = time.time() - model_time
 
-        outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
-        model_time = time.time() - model_time
+           outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
+           res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
+           
+           all_predictions.extend([
+               {
+                   'image_id': target["image_id"].item(),
+                   'predictions': output
+               } for target, output in zip(targets, outputs)
+           ])
+           evaluator_time = time.time()
+           coco_evaluator.update(res)
+           evaluator_time = time.time() - evaluator_time
+           metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
 
-        res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
-        evaluator_time = time.time()
-        coco_evaluator.update(res)
-        evaluator_time = time.time() - evaluator_time
-        metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
-        
-        for target, output in zip(targets, outputs):
-            image_id = target["image_id"].item()
-            if "boxes" in output and output["boxes"].dim() > 0:
-                for box, label_id, score in zip(output["boxes"], output["labels"], output["scores"]):
-                    if score > 0.7:
-                        if all_predictions is not None:
-                            all_predictions.append({
-                                "image_id": image_id,
-                                "category_id": label_id.item() + 1,
-                                "bbox": box.tolist(),
-                                "score": score.item()
-                            })
-
-    # gather the stats from all processes
-    metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger)
-    coco_evaluator.synchronize_between_processes()
-
-    # accumulate predictions from all images
-    coco_evaluator.accumulate()
-    coco_evaluator.summarize()
-    torch.set_num_threads(n_threads)
-    return coco_evaluator, all_predictions
+       # gather the stats from all processes
+       metric_logger.synchronize_between_processes()
+       print("Averaged stats:", metric_logger)
+       coco_evaluator.accumulate()
+       coco_evaluator.summarize()
+       torch.set_num_threads(n_threads)
+       return coco_evaluator, all_predictions
