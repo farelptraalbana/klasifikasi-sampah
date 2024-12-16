@@ -70,7 +70,7 @@ class CocoEvaluator(object):
 
         # Ambil nama kelas dari coco_eval
         label_names = [
-            cat.get('name', f'class_{cat["category_id"]}') for cat in coco_eval.cocoGt.cats.values()
+            cat.get('name', f'class_{cat["id"]}') for cat in coco_eval.cocoGt.cats.values()
         ]
 
         # Menampilkan mAP untuk setiap kelas dalam persentase
