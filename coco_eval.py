@@ -66,22 +66,29 @@ class CocoEvaluator(object):
 
         print("\nEvaluasi per epoch:")
         precisions = coco_eval.eval['precision']
-        
+
         # Ambil nama kelas dari coco_eval
-        label_names = [cat['name'] for cat in coco_eval.cocoGt.cats.values()]
-        
+        label_names = [
+            cat.get('name', f'class_{cat["id"]}') for cat in coco_eval.cocoGt.cats.values()
+        ]
+
         # Menampilkan mAP untuk setiap kelas dalam persentase
         for class_id, label_name in enumerate(label_names):
-            ap = np.mean(precisions[class_id, :, :, 0, 2]) * 100  # Kalikan dengan 100 untuk persentase
-            print(f"AP for {label_name}: {ap:.2f}%")  # Format output dengan tanda %
+            # Pastikan class_id sesuai dengan perubahan category_id
+            shifted_class_id = class_id - 1  # Jika Anda telah menggeser category_id di awal
+            if 0 <= shifted_class_id < precisions.shape[0]:
+                ap = np.mean(precisions[shifted_class_id, :, :, 0, 2]) * 100  # Kalikan dengan 100 untuk persentase
+                print(f"AP for {label_name}: {ap:.2f}%")  # Format output dengan tanda %
+            else:
+                print(f"Class ID {shifted_class_id} out of range for {label_name}")
 
         # Mengembalikan mAP keseluruhan dalam persentase
         map_score = coco_eval.stats[0] * 100  # Kalikan dengan 100 untuk persentase
         print(f"mAP pada epoch ini: {map_score:.2f}%")
-        
+
         # Simpan skor mAP ke dalam list
         self.map_scores.append(map_score)
-        
+
         return map_score
 
     def prepare(self, predictions, iou_type):
@@ -232,22 +239,6 @@ def loadRes(self, resFile):
     res.dataset['annotations'] = anns
     createIndex(res)
     return res
-
-def plot_map_per_epoch(map_scores):
-    """
-    Plot mAP (Mean Average Precision) per epoch
-    
-    Parameters:
-    map_scores (list): Daftar skor mAP dari setiap epoch
-    """
-    plt.figure(figsize=(10, 5))
-    plt.plot(range(1, len(map_scores) + 1), map_scores, marker='o', color='green')
-    plt.title('Mean Average Precision (mAP) per Epoch')
-    plt.xlabel('Epoch')
-    plt.ylabel('mAP (%)')
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
 
 def evaluate(self):
     p = self.params
