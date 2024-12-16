@@ -57,38 +57,38 @@ class CocoEvaluator(object):
         self.coco_eval["bbox"].accumulate()
 
     def summarize(self):
-        """
-        Compute and display summary metrics for evaluation results.
-        Menampilkan metrik evaluasi dan menyimpan skor mAP
-        """
         coco_eval = self.coco_eval["bbox"]
         print("IoU metric: bbox")
         coco_eval.summarize()
 
-        print("\nEvaluasi per epoch:")
         precisions = coco_eval.eval['precision']
+        stats = coco_eval.stats
 
-        # Ambil nama kelas dari coco_eval
+        print("\nDetailed Stats:")
+        stat_names = [
+            "AP@[IoU=0.50:0.95]", "AP@[IoU=0.50]", "AP@[IoU=0.75]", 
+            "AP@small", "AP@medium", "AP@large"
+        ]
+        for name, stat in zip(stat_names, stats[:6]):
+            print(f"{name}: {stat * 100:.2f}%")
+
         label_names = [
             cat.get('name', f'class_{cat["id"]}') for cat in coco_eval.cocoGt.cats.values()
         ]
 
-        # Menampilkan mAP untuk setiap kelas dalam persentase
+        # Print detailed per-class AP
         for class_id, label_name in enumerate(label_names):
-            # Pastikan class_id sesuai dengan perubahan category_id
             shifted_class_id = class_id
             if 0 <= shifted_class_id < precisions.shape[0]:
-                ap = np.mean(precisions[shifted_class_id, :, :, 0, 2]) * 100  # Kalikan dengan 100 untuk persentase
-                print(f"AP for {label_name}: {ap:.2f}%")  # Format output dengan tanda %
-            else:
-                print(f"Class ID {shifted_class_id} out of range for {label_name}")
+                # Detailed AP calculation
+                ap_values = precisions[shifted_class_id, :, :, 0, 2]
+                print(f"\nDetailed AP for {label_name}:")
+                print(f"AP values: {ap_values}")
+                ap = np.mean(ap_values) * 100
+                print(f"AP: {ap:.2f}%")
 
-        # Mengembalikan mAP keseluruhan dalam persentase
-        map_score = coco_eval.stats[0] * 100  # Kalikan dengan 100 untuk persentase
-        print(f"mAP pada epoch ini: {map_score:.2f}%")
-
-        # Simpan skor mAP ke dalam list
-        self.map_scores.append(map_score)
+        map_score = coco_eval.stats[0] * 100
+        print(f"\nmAP pada epoch ini: {map_score:.2f}%")
 
         return map_score
 
