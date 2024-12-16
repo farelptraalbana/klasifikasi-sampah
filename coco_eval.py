@@ -59,20 +59,6 @@ class CocoEvaluator(object):
         print("IoU metric: bbox")
         coco_eval.summarize()
 
-        # Menampilkan mAP per kelas
-        mAPs = coco_eval.stats
-        print("mAP per kelas:")
-        for i, mAP in enumerate(mAPs[:-1]):  # Mengabaikan mAP keseluruhan
-            print(f"Class {i+1}: {mAP:.4f}")
-
-        # Menampilkan mAP keseluruhan
-        print(f"mAP: {mAPs[0]:.4f}")
-
-        # Menampilkan hasil evaluasi per epoch
-        print("Evaluasi per epoch:")
-        for epoch, eval_img in enumerate(self.eval_imgs["bbox"]):
-            print(f"Epoch {epoch + 1}: mAP per epoch = {np.mean(eval_img):.4f}")
-
     def prepare(self, predictions, iou_type):
         if iou_type == "bbox":
             return self.prepare_for_coco_detection(predictions)
