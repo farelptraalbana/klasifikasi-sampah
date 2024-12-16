@@ -5,6 +5,7 @@ import numpy as np
 import copy
 import time
 import torch
+import matplotlib.pyplot as plt
 
 from pycocotools.cocoeval import COCOeval
 from pycocotools.coco import COCO
@@ -31,12 +32,12 @@ class CocoEvaluator(object):
         img_ids = list(np.unique(list(predictions.keys())))
         self.img_ids.extend(img_ids)
         
-        print(f"Number of images in evaluation: {len(self.img_ids)}")
+        #print(f"Number of images in evaluation: {len(self.img_ids)}")
 
         # Hanya proses untuk "bbox"
         results = self.prepare(predictions, "bbox")
         
-        print(f"Number of predictions processed: {len(results)}")
+        #print(f"Number of predictions processed: {len(results)}")
         coco_dt = loadRes(self.coco_gt, results) if results else COCO()
         coco_eval = self.coco_eval["bbox"]
 
@@ -55,9 +56,33 @@ class CocoEvaluator(object):
         self.coco_eval["bbox"].accumulate()
 
     def summarize(self):
+        """
+        Compute and display summary metrics for evaluation results.
+        Menampilkan metrik evaluasi dan menyimpan skor mAP
+        """
         coco_eval = self.coco_eval["bbox"]
         print("IoU metric: bbox")
         coco_eval.summarize()
+
+        print("\nEvaluasi per epoch:")
+        precisions = coco_eval.eval['precision']
+        
+        # Ambil nama kelas dari coco_eval
+        label_names = [cat['name'] for cat in coco_eval.cocoGt.cats.values()]
+        
+        # Menampilkan mAP untuk setiap kelas dalam persentase
+        for class_id, label_name in enumerate(label_names):
+            ap = np.mean(precisions[class_id, :, :, 0, 2]) * 100  # Kalikan dengan 100 untuk persentase
+            print(f"AP for {label_name}: {ap:.2f}%")  # Format output dengan tanda %
+
+        # Mengembalikan mAP keseluruhan dalam persentase
+        map_score = coco_eval.stats[0] * 100  # Kalikan dengan 100 untuk persentase
+        print(f"mAP pada epoch ini: {map_score:.2f}%")
+        
+        # Simpan skor mAP ke dalam list
+        self.map_scores.append(map_score)
+        
+        return map_score
 
     def prepare(self, predictions, iou_type):
         if iou_type == "bbox":
@@ -87,7 +112,7 @@ class CocoEvaluator(object):
                     for k, box in enumerate(boxes)
                 ]
             )
-        print(f"Number of predictions processed in prepare: {len(coco_results)}")
+        #print(f"Number of predictions processed in prepare: {len(coco_results)}")
         return coco_results
 
 def convert_to_xywh(boxes):
@@ -207,6 +232,22 @@ def loadRes(self, resFile):
     res.dataset['annotations'] = anns
     createIndex(res)
     return res
+
+def plot_map_per_epoch(map_scores):
+    """
+    Plot mAP (Mean Average Precision) per epoch
+    
+    Parameters:
+    map_scores (list): Daftar skor mAP dari setiap epoch
+    """
+    plt.figure(figsize=(10, 5))
+    plt.plot(range(1, len(map_scores) + 1), map_scores, marker='o', color='green')
+    plt.title('Mean Average Precision (mAP) per Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('mAP (%)')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 def evaluate(self):
     p = self.params
