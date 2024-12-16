@@ -64,19 +64,32 @@ class CocoEvaluator(object):
         print("IoU metric: bbox")
         coco_eval.summarize()
 
-        # Menampilkan mAP per kelas
-        mAPs = coco_eval.stats
-        print("mAP per kelas:")
-        for i, mAP in enumerate(mAPs[:-1]):  # Mengabaikan mAP keseluruhan
-            print(f"Class {i+1}: {mAP:.4f}")
+        print("\nEvaluasi per epoch:")
+        precisions = coco_eval.eval['precision']
 
-        # Menampilkan mAP keseluruhan
-        print(f"mAP: {mAPs[0]:.4f}")
+        # Ambil nama kelas dari coco_eval
+        label_names = [
+            cat.get('name', f'class_{cat["id"]}') for cat in coco_eval.cocoGt.cats.values()
+        ]
 
-        # Menampilkan hasil evaluasi per epoch
-        print("Evaluasi per epoch:")
-        for epoch, eval_img in enumerate(self.eval_imgs["bbox"]):
-            print(f"Epoch {epoch + 1}: mAP per epoch = {np.mean(eval_img):.4f}")
+        # Menampilkan mAP untuk setiap kelas dalam persentase
+        for class_id, label_name in enumerate(label_names):
+            # Pastikan class_id sesuai dengan perubahan category_id
+            shifted_class_id = class_id
+            if 0 <= shifted_class_id < precisions.shape[0]:
+                ap = np.mean(precisions[shifted_class_id, :, :, 0, 2]) * 100  # Kalikan dengan 100 untuk persentase
+                print(f"AP for {label_name}: {ap:.2f}%")  # Format output dengan tanda %
+            else:
+                print(f"Class ID {shifted_class_id} out of range for {label_name}")
+
+        # Mengembalikan mAP keseluruhan dalam persentase
+        map_score = coco_eval.stats[0] * 100  # Kalikan dengan 100 untuk persentase
+        print(f"mAP pada epoch ini: {map_score:.2f}%")
+
+        # Simpan skor mAP ke dalam list
+        self.map_scores.append(map_score)
+
+        return map_score
 
     def prepare(self, predictions, iou_type):
         if iou_type == "bbox":
