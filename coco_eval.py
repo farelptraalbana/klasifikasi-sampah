@@ -61,37 +61,6 @@ class CocoEvaluator(object):
         print("IoU metric: bbox")
         coco_eval.summarize()
 
-        precisions = coco_eval.eval['precision']
-        stats = coco_eval.stats
-
-        print("\nDetailed Stats:")
-        stat_names = [
-            "AP@[IoU=0.50:0.95]", "AP@[IoU=0.50]", "AP@[IoU=0.75]", 
-            "AP@small", "AP@medium", "AP@large"
-        ]
-        for name, stat in zip(stat_names, stats[:6]):
-            print(f"{name}: {stat * 100:.2f}%")
-
-        label_names = [
-            cat.get('name', f'class_{cat["id"]}') for cat in coco_eval.cocoGt.cats.values()
-        ]
-
-        # Print detailed per-class AP
-        for class_id, label_name in enumerate(label_names):
-            shifted_class_id = class_id
-            if 0 <= shifted_class_id < precisions.shape[0]:
-                # Detailed AP calculation
-                ap_values = precisions[shifted_class_id, :, :, 0, 2]
-                print(f"\nDetailed AP for {label_name}:")
-                print(f"AP values: {ap_values}")
-                ap = np.mean(ap_values) * 100
-                print(f"AP: {ap:.2f}%")
-
-        map_score = coco_eval.stats[0] * 100
-        print(f"\nmAP pada epoch ini: {map_score:.2f}%")
-
-        return map_score
-
     def prepare(self, predictions, iou_type):
         if iou_type == "bbox":
             return self.prepare_for_coco_detection(predictions)
