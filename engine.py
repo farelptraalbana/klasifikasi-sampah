@@ -114,7 +114,7 @@ def evaluate(model, data_loader, device, all_predictions=None,  print_freq=10):
                         if all_predictions is not None:
                             all_predictions.append({
                                 "image_id": image_id,
-                                "category_id": label_id.item(),
+                                "category_id": label_id.item(), # + 1
                                 "bbox": box.tolist(),
                                 "score": score.item()
                             })
