@@ -1,1 +1,1 @@
-{"0": "queen", "1": "ten", "2": "nine", "3": "king", "4": "jack", "5": "ace"}
+{1: 'Botol Plastik', 2: 'Bungkus Makanan', 3: 'Bungkus Minuman', 4: 'Kantong Plastik'}
